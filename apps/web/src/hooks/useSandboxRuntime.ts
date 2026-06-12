@@ -46,10 +46,20 @@ export interface SandboxTerminalScript {
   readonly command: string;
 }
 
+export type SandboxBranchSelection =
+  | { readonly kind: "existing"; readonly name: string }
+  | { readonly kind: "create"; readonly name: string };
+
+/**
+ * New-branch names: alphanumeric segments separated by single dashes — no
+ * spaces, no leading/trailing dash. Shared by the gate's inline validation.
+ */
+export const SANDBOX_NEW_BRANCH_PATTERN = /^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/;
+
 export interface SandboxRuntime {
   readonly config: SandboxConfig | null;
   readonly gate: SandboxGate;
-  readonly confirmBranch: (branchName: string | null) => void;
+  readonly confirmBranch: (selection: SandboxBranchSelection) => void;
   /** Runs the shutdown + startup scripts visibly in the bottom terminal. */
   readonly restartSystem: (() => void) | null;
 }
@@ -107,7 +117,7 @@ export function useSandboxRuntime(input: {
   const [gate, setGate] = useState<SandboxGate>({ phase: "hidden" });
   const onRunScriptInTerminalRef = useRef(input.onRunScriptInTerminal);
   onRunScriptInTerminalRef.current = input.onRunScriptInTerminal;
-  const confirmBranchRef = useRef<(branchName: string | null) => void>(() => undefined);
+  const confirmBranchRef = useRef<(selection: SandboxBranchSelection) => void>(() => undefined);
   const restartSystemRef = useRef<() => void>(() => undefined);
 
   useEffect(() => {
@@ -359,34 +369,50 @@ export function useSandboxRuntime(input: {
       scheduleNextHealthcheck();
     };
 
-    const confirmBranch = (branchName: string | null) => {
+    const confirmBranch = (selection: SandboxBranchSelection) => {
       const sandboxConfig = activeConfig;
       if (sandboxConfig === null) {
         return;
       }
+      if (selection.kind === "create" && !SANDBOX_NEW_BRANCH_PATTERN.test(selection.name)) {
+        return;
+      }
       setGate((current) => (current.phase === "select" ? { ...current, busy: true } : current));
       void (async () => {
+        // Creating a branch keeps the current HEAD content, so the running
+        // system stays valid — no shutdown/restart needed, unlike a switch.
         const branchChanged =
-          branchName !== null && currentBranch !== null && branchName !== currentBranch;
-        if (branchChanged) {
-          try {
-            await api.vcs.switchRef({ cwd: gitCwd, refName: branchName });
-          } catch (error) {
-            if (cancelled) {
-              return;
-            }
-            toastManager.add(
-              stackedThreadToast({
-                type: "error",
-                title: `Could not switch to ${branchName}`,
-                description: error instanceof Error ? error.message : "An error occurred.",
-              }),
-            );
-            setGate((current) =>
-              current.phase === "select" ? { ...current, busy: false } : current,
-            );
+          selection.kind === "existing" &&
+          currentBranch !== null &&
+          selection.name !== currentBranch;
+        try {
+          if (selection.kind === "create") {
+            await api.vcs.createRef({
+              cwd: gitCwd,
+              refName: selection.name,
+              switchRef: true,
+            });
+          } else if (branchChanged) {
+            await api.vcs.switchRef({ cwd: gitCwd, refName: selection.name });
+          }
+        } catch (error) {
+          if (cancelled) {
             return;
           }
+          toastManager.add(
+            stackedThreadToast({
+              type: "error",
+              title:
+                selection.kind === "create"
+                  ? `Could not create branch ${selection.name}`
+                  : `Could not switch to ${selection.name}`,
+              description: error instanceof Error ? error.message : "An error occurred.",
+            }),
+          );
+          setGate((current) =>
+            current.phase === "select" ? { ...current, busy: false } : current,
+          );
+          return;
         }
         if (cancelled) {
           return;
@@ -495,8 +521,8 @@ export function useSandboxRuntime(input: {
     };
   }, [enabled, environmentId, gitCwd]);
 
-  const confirmBranch = useCallback((branchName: string | null) => {
-    confirmBranchRef.current(branchName);
+  const confirmBranch = useCallback((selection: SandboxBranchSelection) => {
+    confirmBranchRef.current(selection);
   }, []);
 
   const restartSystem = useCallback(() => {
