@@ -525,7 +525,7 @@ it.layer(NodeServices.layer)("cli config resolution", (it) => {
     }),
   );
 
-  it.effect("forces noBrowser and disables auto-bootstrap for headless startup presentation", () =>
+  it.effect("forces noBrowser but keeps auto-bootstrap for headless startup presentation", () =>
     Effect.gen(function* () {
       const { join } = yield* Path.Path;
       const baseDir = join(NodeOS.tmpdir(), "t3-cli-config-headless-base");
@@ -580,7 +580,7 @@ it.layer(NodeServices.layer)("cli config resolution", (it) => {
         noBrowser: true,
         startupPresentation: "headless",
         desktopBootstrapToken: undefined,
-        autoBootstrapProjectFromCwd: false,
+        autoBootstrapProjectFromCwd: true,
         logWebSocketEvents: false,
         tailscaleServeEnabled: false,
         tailscaleServePort: 443,

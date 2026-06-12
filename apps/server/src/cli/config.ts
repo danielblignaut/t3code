@@ -300,10 +300,11 @@ export const resolveServerConfig = (
     );
     const desktopBootstrapToken = bootstrap?.desktopBootstrapToken;
     const staticPairingToken = yield* readSandboxPairCode(cwd);
+    // Single-project sandbox mode: headless serve bootstraps the cwd project
+    // like any other web startup, so the UI opens straight onto a thread.
     const autoBootstrapProjectFromCwd = Option.getOrElse(
       resolveOptionPrecedence(
         Option.fromUndefinedOr(options?.forceAutoBootstrapProjectFromCwd),
-        isHeadlessStartup ? Option.some(false) : Option.none(),
         normalizedFlags.autoBootstrapProjectFromCwd,
         Option.fromUndefinedOr(env.autoBootstrapProjectFromCwd),
       ),

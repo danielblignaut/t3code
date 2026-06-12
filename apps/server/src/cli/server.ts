@@ -30,7 +30,6 @@ export const serveCommand = Command.make("serve", { ...sharedServerCommandFlags 
   Command.withHandler((flags) =>
     runServerCommand(flags, {
       startupPresentation: "headless",
-      forceAutoBootstrapProjectFromCwd: false,
     }),
   ),
 );
