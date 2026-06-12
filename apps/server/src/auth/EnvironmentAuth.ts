@@ -33,6 +33,7 @@ import * as PairingGrantStore from "./PairingGrantStore.ts";
 import * as ServerSecretStore from "./ServerSecretStore.ts";
 import * as SessionStore from "./SessionStore.ts";
 import { verifyRequestDpopProof } from "./dpop.ts";
+import { ServerConfig } from "../config.ts";
 import { layerConfig as SqlitePersistenceLayer } from "../persistence/Layers/Sqlite.ts";
 
 export const DEFAULT_SESSION_SUBJECT = "cli-issued-session";
@@ -268,6 +269,7 @@ export const make = Effect.fn("makeEnvironmentAuth")(function* () {
   const sessions = yield* SessionStore.SessionStore;
   const secretStore = yield* ServerSecretStore.ServerSecretStore;
   const crypto = yield* Crypto.Crypto;
+  const serverConfig = yield* ServerConfig;
   const descriptor = yield* policy.getDescriptor();
 
   const authenticateToken = (
@@ -592,11 +594,28 @@ export const make = Effect.fn("makeEnvironmentAuth")(function* () {
       ...(input?.label ? { label: input.label } : {}),
     }).pipe(Effect.withSpan("EnvironmentAuth.issuePairingCredential"));
 
+  const staticPairingToken = serverConfig.staticPairingToken;
   const issueStartupPairingCredential: EnvironmentAuthShape["issueStartupPairingCredential"] = () =>
-    issuePairingCredentialForSubject({
-      scopes: AuthAdministrativeScopes,
-      subject: INTERNAL_ADMINISTRATIVE_BOOTSTRAP_SUBJECT,
-    }).pipe(Effect.withSpan("EnvironmentAuth.issueStartupPairingCredential"));
+    (staticPairingToken !== undefined
+      ? Effect.gen(function* () {
+          // Static sandbox pair code: the reusable grant is seeded by
+          // PairingGrantStore at startup, so just surface the credential.
+          const now = yield* DateTime.now;
+          return {
+            id: PairingGrantStore.STATIC_PAIRING_SUBJECT,
+            credential: staticPairingToken,
+            expiresAt: DateTime.toUtc(
+              DateTime.add(now, {
+                milliseconds: Duration.toMillis(PairingGrantStore.STATIC_PAIRING_TOKEN_TTL),
+              }),
+            ),
+          } satisfies AuthPairingCredentialResult;
+        })
+      : issuePairingCredentialForSubject({
+          scopes: AuthAdministrativeScopes,
+          subject: INTERNAL_ADMINISTRATIVE_BOOTSTRAP_SUBJECT,
+        })
+    ).pipe(Effect.withSpan("EnvironmentAuth.issueStartupPairingCredential"));
 
   const listClientSessions: EnvironmentAuthShape["listClientSessions"] = (currentSessionId) =>
     listSessions().pipe(

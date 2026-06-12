@@ -14,6 +14,7 @@ import * as SchemaTransformation from "effect/SchemaTransformation";
 import { Argument, Flag } from "effect/unstable/cli";
 
 import { readBootstrapEnvelope } from "../bootstrap.ts";
+import { readSandboxPairCode } from "../sandbox/SandboxService.ts";
 import {
   DEFAULT_PORT,
   deriveServerPaths,
@@ -298,6 +299,7 @@ export const resolveServerConfig = (
       () => mode === "desktop",
     );
     const desktopBootstrapToken = bootstrap?.desktopBootstrapToken;
+    const staticPairingToken = yield* readSandboxPairCode(cwd);
     const autoBootstrapProjectFromCwd = Option.getOrElse(
       resolveOptionPrecedence(
         Option.fromUndefinedOr(options?.forceAutoBootstrapProjectFromCwd),
@@ -370,6 +372,7 @@ export const resolveServerConfig = (
       noBrowser,
       startupPresentation,
       desktopBootstrapToken,
+      ...(staticPairingToken !== null ? { staticPairingToken } : {}),
       autoBootstrapProjectFromCwd,
       logWebSocketEvents,
       tailscaleServeEnabled,

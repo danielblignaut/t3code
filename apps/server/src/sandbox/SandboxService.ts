@@ -32,6 +32,7 @@ const RawSandboxConfigFile = Schema.Struct({
   startup_script: Schema.optional(Schema.String),
   shutdown_script: Schema.optional(Schema.String),
   healthcheck_script: Schema.optional(Schema.String),
+  pair_code: Schema.optional(Schema.String),
 });
 type RawSandboxConfigFile = typeof RawSandboxConfigFile.Type;
 
@@ -53,10 +54,41 @@ function parseConfigFile(raw: string): RawSandboxConfigFile | null {
   }
 }
 
-function normalizeScript(script: string | undefined): string | null {
+function normalizeNonEmptyString(script: string | undefined): string | null {
   const trimmed = script?.trim() ?? "";
   return trimmed.length > 0 ? trimmed : null;
 }
+
+/**
+ * Reads the static pairing code (`pair_code`) from the project's
+ * `t3codable.json`, if present. Tolerant by design: a missing or invalid
+ * config file yields `null` so server startup never fails on it.
+ *
+ * Deliberately NOT part of `SandboxConfig` / the `sandbox.getConfig` RPC —
+ * the pair code is a credential and must not be served to clients.
+ */
+export const readSandboxPairCode = Effect.fn("readSandboxPairCode")(function* (cwd: string) {
+  const fileSystem = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const configPath = path.join(cwd, SANDBOX_CONFIG_FILENAME);
+
+  const exists = yield* fileSystem.exists(configPath).pipe(Effect.orElseSucceed(() => false));
+  if (!exists) {
+    return null;
+  }
+
+  const raw = yield* fileSystem.readFileString(configPath).pipe(Effect.orElseSucceed(() => null));
+  if (raw === null) {
+    return null;
+  }
+
+  const parsed = parseConfigFile(raw);
+  if (parsed === null) {
+    return null;
+  }
+
+  return normalizeNonEmptyString(parsed.pair_code);
+});
 
 /**
  * Replaces every `$tailscale_ip` occurrence in a preview URL. When no
@@ -152,9 +184,9 @@ export const make = Effect.fn("makeSandboxService")(function* () {
 
     return {
       previewUrls,
-      startupCommand: normalizeScript(parsed.startup_script),
-      shutdownCommand: normalizeScript(parsed.shutdown_script),
-      healthcheckCommand: normalizeScript(parsed.healthcheck_script),
+      startupCommand: normalizeNonEmptyString(parsed.startup_script),
+      shutdownCommand: normalizeNonEmptyString(parsed.shutdown_script),
+      healthcheckCommand: normalizeNonEmptyString(parsed.healthcheck_script),
     } satisfies SandboxConfig;
   }).pipe(Effect.withSpan("SandboxService.getConfig"));
 

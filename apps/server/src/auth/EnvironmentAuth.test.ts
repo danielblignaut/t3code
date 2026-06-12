@@ -187,6 +187,31 @@ it.layer(NodeServices.layer)("EnvironmentAuth.layer", (it) => {
     }).pipe(Effect.provide(makeEnvironmentAuthLayer())),
   );
 
+  it.effect("uses the static sandbox pair code for startup pairing URLs, reusably", () =>
+    Effect.gen(function* () {
+      const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
+
+      const pairingUrl = yield* serverAuth.issueStartupPairingUrl("http://127.0.0.1:3773");
+      const token = new URLSearchParams(new URL(pairingUrl).hash.slice(1)).get("token");
+      expect(token).toBe("STATIC-SANDBOX-CODE");
+
+      // The static grant is reusable: pairing twice must both succeed.
+      const firstExchange = yield* serverAuth.createBrowserSession(token ?? "", requestMetadata);
+      const secondExchange = yield* serverAuth.createBrowserSession(token ?? "", requestMetadata);
+
+      const verified = yield* serverAuth.authenticateHttpRequest(
+        makeCookieRequest(firstExchange.sessionToken),
+      );
+      expect(verified.subject).toBe(PairingGrantStore.STATIC_PAIRING_SUBJECT);
+      const verifiedSecond = yield* serverAuth.authenticateHttpRequest(
+        makeCookieRequest(secondExchange.sessionToken),
+      );
+      expect(verifiedSecond.subject).toBe(PairingGrantStore.STATIC_PAIRING_SUBJECT);
+    }).pipe(
+      Effect.provide(makeEnvironmentAuthLayer({ staticPairingToken: "STATIC-SANDBOX-CODE" })),
+    ),
+  );
+
   it.effect(
     "lists pairing links and revokes other sessions while keeping the administrative session",
     () =>

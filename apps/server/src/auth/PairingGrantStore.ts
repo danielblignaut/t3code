@@ -107,6 +107,8 @@ type ConsumeResult =
     };
 
 const DEFAULT_ONE_TIME_TOKEN_TTL_MINUTES = Duration.minutes(5);
+export const STATIC_PAIRING_SUBJECT = "sandbox-static-pair-code";
+export const STATIC_PAIRING_TOKEN_TTL = Duration.days(365 * 10);
 const PAIRING_TOKEN_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 const PAIRING_TOKEN_LENGTH = 12;
 const PAIRING_TOKEN_REJECTION_LIMIT =
@@ -175,6 +177,21 @@ export const make = Effect.fn("makePairingGrantStore")(function* () {
         milliseconds: Duration.toMillis(DEFAULT_ONE_TIME_TOKEN_TTL_MINUTES),
       }),
       remainingUses: 1,
+    });
+  }
+
+  if (config.staticPairingToken) {
+    // Static sandbox pair code from t3codable.json: reusable for the whole
+    // server lifetime so the sandbox URL can be opened repeatedly.
+    const now = yield* DateTime.now;
+    yield* seedGrant(config.staticPairingToken, {
+      method: "one-time-token",
+      scopes: AuthAdministrativeScopes,
+      subject: STATIC_PAIRING_SUBJECT,
+      expiresAt: DateTime.add(now, {
+        milliseconds: Duration.toMillis(STATIC_PAIRING_TOKEN_TTL),
+      }),
+      remainingUses: "unbounded",
     });
   }
 

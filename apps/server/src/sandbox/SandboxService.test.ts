@@ -11,6 +11,7 @@ import {
   SandboxService,
   interpolateTailscaleIp,
   layer as SandboxServiceLive,
+  readSandboxPairCode,
 } from "./SandboxService.ts";
 
 const makeTestLayer = (cwd: string) =>
@@ -55,6 +56,28 @@ describe("interpolateTailscaleIp", () => {
       "http://$tailscale_ip:3000",
     );
   });
+});
+
+describe("readSandboxPairCode", () => {
+  it.effect("returns the trimmed pair code from t3codable.json", () =>
+    withProjectDir((cwd) =>
+      Effect.gen(function* () {
+        yield* writeSandboxConfig(cwd, { pair_code: " MY-STATIC-CODE " });
+        const pairCode = yield* readSandboxPairCode(cwd);
+        expect(pairCode).toBe("MY-STATIC-CODE");
+      }),
+    ),
+  );
+
+  it.effect("returns null when the config or pair code is absent", () =>
+    withProjectDir((cwd) =>
+      Effect.gen(function* () {
+        expect(yield* readSandboxPairCode(cwd)).toBeNull();
+        yield* writeSandboxConfig(cwd, { startup_script: "make dev" });
+        expect(yield* readSandboxPairCode(cwd)).toBeNull();
+      }),
+    ),
+  );
 });
 
 describe("SandboxService", () => {
