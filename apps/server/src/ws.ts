@@ -173,6 +173,7 @@ const RPC_REQUIRED_SCOPE = new Map<string, AuthEnvironmentScope>([
   [WS_METHODS.vcsInit, AuthOrchestrationOperateScope],
   [WS_METHODS.reviewGetDiffPreview, AuthReviewWriteScope],
   [WS_METHODS.sandboxGetConfig, AuthOrchestrationReadScope],
+  [WS_METHODS.sandboxGitFetch, AuthOrchestrationOperateScope],
   [WS_METHODS.sandboxRunHealthcheck, AuthOrchestrationOperateScope],
   [WS_METHODS.sandboxRunShutdown, AuthOrchestrationOperateScope],
   [WS_METHODS.terminalOpen, AuthTerminalOperateScope],
@@ -1300,6 +1301,10 @@ const makeWsRpcLayer = (currentSession: AuthenticatedSession) =>
           }),
         [WS_METHODS.sandboxGetConfig]: () =>
           observeRpcEffect(WS_METHODS.sandboxGetConfig, sandboxService.getConfig, {
+            "rpc.aggregate": "sandbox",
+          }),
+        [WS_METHODS.sandboxGitFetch]: () =>
+          observeRpcEffect(WS_METHODS.sandboxGitFetch, sandboxService.gitFetch, {
             "rpc.aggregate": "sandbox",
           }),
         [WS_METHODS.sandboxRunHealthcheck]: () =>

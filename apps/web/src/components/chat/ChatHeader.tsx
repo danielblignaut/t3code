@@ -9,8 +9,9 @@ import { scopeThreadRef } from "@t3tools/client-runtime";
 import { memo } from "react";
 import GitActionsControl from "../GitActionsControl";
 import { type DraftId } from "~/composerDraftStore";
-import { DiffIcon, TerminalSquareIcon } from "lucide-react";
+import { DiffIcon, RotateCcwIcon, TerminalSquareIcon } from "lucide-react";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { Button } from "../ui/button";
 import { Toggle } from "../ui/toggle";
 import { OpenInPicker } from "./OpenInPicker";
 import { PreviewUrlsControl } from "../PreviewUrlsControl";
@@ -27,6 +28,7 @@ interface ChatHeaderProps {
   keybindings: ResolvedKeybindingsConfig;
   availableEditors: ReadonlyArray<EditorId>;
   previewUrls: ReadonlyArray<SandboxPreviewUrl>;
+  onRestartSandbox: (() => void) | null;
   terminalAvailable: boolean;
   terminalOpen: boolean;
   terminalToggleShortcutLabel: string | null;
@@ -60,6 +62,7 @@ export const ChatHeader = memo(function ChatHeader({
   keybindings,
   availableEditors,
   previewUrls,
+  onRestartSandbox,
   terminalAvailable,
   terminalOpen,
   terminalToggleShortcutLabel,
@@ -109,6 +112,26 @@ export const ChatHeader = memo(function ChatHeader({
           />
         )}
         <PreviewUrlsControl previewUrls={previewUrls} />
+        {onRestartSandbox !== null && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  className="shrink-0"
+                  aria-label="Shutdown and restart project"
+                  variant="ghost"
+                  size="xs"
+                  onClick={onRestartSandbox}
+                >
+                  <RotateCcwIcon className="size-3" />
+                </Button>
+              }
+            />
+            <TooltipPopup side="bottom">
+              Shutdown &amp; restart the project. Output shows in the terminal.
+            </TooltipPopup>
+          </Tooltip>
+        )}
         <Tooltip>
           <TooltipTrigger
             render={

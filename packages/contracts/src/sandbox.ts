@@ -15,6 +15,13 @@ export type SandboxPreviewUrl = typeof SandboxPreviewUrl.Type;
 
 export const SandboxConfig = Schema.Struct({
   previewUrls: Schema.Array(SandboxPreviewUrl),
+  /**
+   * Provider keys from `providers_to_configure` whose value is `true` —
+   * these get signed in and enabled during the app-open sequence.
+   */
+  providersToConfigure: Schema.Array(TrimmedNonEmptyString),
+  /** Runs once per app open, before the startup script. */
+  setupCommand: Schema.NullOr(TrimmedNonEmptyString),
   startupCommand: Schema.NullOr(TrimmedNonEmptyString),
   shutdownCommand: Schema.NullOr(TrimmedNonEmptyString),
   healthcheckCommand: Schema.NullOr(TrimmedNonEmptyString),

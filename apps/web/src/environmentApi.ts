@@ -50,6 +50,7 @@ export function createEnvironmentApi(rpcClient: WsRpcClient): EnvironmentApi {
     },
     sandbox: {
       getConfig: rpcClient.sandbox.getConfig,
+      gitFetch: rpcClient.sandbox.gitFetch,
       runHealthcheck: rpcClient.sandbox.runHealthcheck,
       runShutdown: rpcClient.sandbox.runShutdown,
     },

@@ -101,6 +101,7 @@ import { cn, randomHex } from "~/lib/utils";
 import { stackedThreadToast, toastManager } from "./ui/toast";
 import { projectScriptIdFromCommand } from "~/projectScripts";
 import { useSandboxRuntime } from "~/hooks/useSandboxRuntime";
+import { SandboxBranchGate } from "./SandboxBranchGate";
 import { newCommandId, newDraftId, newMessageId, newThreadId } from "~/lib/utils";
 import { getProviderModelCapabilities, resolveSelectableProvider } from "../providerModels";
 import { useSettings } from "../hooks/useSettings";
@@ -2157,13 +2158,13 @@ export default function ChatView(props: ChatViewProps) {
     ],
   );
 
-  const runSandboxStartupScript = useCallback(
-    (command: string) => {
+  const runSandboxScriptInTerminal = useCallback(
+    (script: { name: string; command: string }) => {
       void runProjectScript(
         {
-          id: "sandbox-startup",
-          name: "Startup script",
-          command,
+          id: "sandbox-lifecycle",
+          name: script.name,
+          command: script.command,
           icon: "play",
           runOnWorktreeCreate: false,
         },
@@ -2175,7 +2176,8 @@ export default function ChatView(props: ChatViewProps) {
   const sandboxRuntime = useSandboxRuntime({
     environmentId,
     enabled: activeProject !== undefined,
-    onRunStartupScript: runSandboxStartupScript,
+    gitCwd: gitCwd ?? activeProject?.cwd ?? null,
+    onRunScriptInTerminal: runSandboxScriptInTerminal,
   });
   const sandboxPreviewUrls = sandboxRuntime.config?.previewUrls ?? EMPTY_SANDBOX_PREVIEW_URLS;
 
@@ -3591,6 +3593,7 @@ export default function ChatView(props: ChatViewProps) {
           keybindings={keybindings}
           availableEditors={availableEditors}
           previewUrls={sandboxPreviewUrls}
+          onRestartSandbox={sandboxRuntime.restartSystem}
           terminalAvailable={activeProject !== undefined}
           terminalOpen={terminalUiState.terminalOpen}
           terminalToggleShortcutLabel={terminalToggleShortcutLabel}
@@ -3815,6 +3818,8 @@ export default function ChatView(props: ChatViewProps) {
       {expandedImage && (
         <ExpandedImageDialog preview={expandedImage} onClose={closeExpandedImage} />
       )}
+
+      <SandboxBranchGate gate={sandboxRuntime.gate} onConfirm={sandboxRuntime.confirmBranch} />
     </div>
   );
 }

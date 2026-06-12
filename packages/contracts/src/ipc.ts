@@ -601,6 +601,7 @@ export interface EnvironmentApi {
   };
   sandbox: {
     getConfig: () => Promise<SandboxConfig>;
+    gitFetch: () => Promise<SandboxScriptResult>;
     runHealthcheck: () => Promise<SandboxScriptResult>;
     runShutdown: () => Promise<SandboxScriptResult>;
   };

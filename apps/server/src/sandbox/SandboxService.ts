@@ -29,6 +29,8 @@ const RawSandboxPreviewUrl = Schema.Struct({
 
 const RawSandboxConfigFile = Schema.Struct({
   preview_urls: Schema.optional(Schema.Array(RawSandboxPreviewUrl)),
+  providers_to_configure: Schema.optional(Schema.Record(Schema.String, Schema.Boolean)),
+  setup_sandbox: Schema.optional(Schema.String),
   startup_script: Schema.optional(Schema.String),
   shutdown_script: Schema.optional(Schema.String),
   healthcheck_script: Schema.optional(Schema.String),
@@ -40,10 +42,15 @@ const isRawSandboxConfigFile = Schema.is(RawSandboxConfigFile);
 
 const EMPTY_CONFIG: SandboxConfig = {
   previewUrls: [],
+  providersToConfigure: [],
+  setupCommand: null,
   startupCommand: null,
   shutdownCommand: null,
   healthcheckCommand: null,
 };
+
+const GIT_FETCH_COMMAND = "git fetch --all --prune";
+const GIT_FETCH_TIMEOUT = "60 seconds";
 
 function parseConfigFile(raw: string): RawSandboxConfigFile | null {
   try {
@@ -104,6 +111,7 @@ export function interpolateTailscaleIp(url: string, tailscaleIp: string | null):
 
 export interface SandboxServiceShape {
   readonly getConfig: Effect.Effect<SandboxConfig, SandboxError>;
+  readonly gitFetch: Effect.Effect<SandboxScriptResult, SandboxError>;
   readonly runHealthcheck: Effect.Effect<SandboxScriptResult, SandboxError>;
   readonly runShutdown: Effect.Effect<SandboxScriptResult, SandboxError>;
 }
@@ -182,8 +190,14 @@ export const make = Effect.fn("makeSandboxService")(function* () {
       previewUrls.push({ name, url: yield* interpolateUrl(url) });
     }
 
+    const providersToConfigure = Object.entries(parsed.providers_to_configure ?? {})
+      .filter(([provider, configure]) => configure && provider.trim().length > 0)
+      .map(([provider]) => provider.trim());
+
     return {
       previewUrls,
+      providersToConfigure,
+      setupCommand: normalizeNonEmptyString(parsed.setup_sandbox),
       startupCommand: normalizeNonEmptyString(parsed.startup_script),
       shutdownCommand: normalizeNonEmptyString(parsed.shutdown_script),
       healthcheckCommand: normalizeNonEmptyString(parsed.healthcheck_script),
@@ -232,6 +246,12 @@ export const make = Effect.fn("makeSandboxService")(function* () {
     } satisfies SandboxScriptResult;
   });
 
+  const gitFetch: SandboxServiceShape["gitFetch"] = runScript({
+    command: GIT_FETCH_COMMAND,
+    label: "git-fetch",
+    timeout: GIT_FETCH_TIMEOUT,
+  });
+
   const runHealthcheck: SandboxServiceShape["runHealthcheck"] = getConfig.pipe(
     Effect.flatMap((config) =>
       runScript({
@@ -254,6 +274,7 @@ export const make = Effect.fn("makeSandboxService")(function* () {
 
   return SandboxService.of({
     getConfig,
+    gitFetch,
     runHealthcheck,
     runShutdown,
   });

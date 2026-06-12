@@ -256,10 +256,13 @@ function createMockEnvironmentApi(input: {
     sandbox: {
       getConfig: async () => ({
         previewUrls: [],
+        providersToConfigure: [],
+        setupCommand: null,
         startupCommand: null,
         shutdownCommand: null,
         healthcheckCommand: null,
       }),
+      gitFetch: async () => ({ status: "no-script", exitCode: null }),
       runHealthcheck: async () => ({ status: "no-script", exitCode: null }),
       runShutdown: async () => ({ status: "no-script", exitCode: null }),
     },

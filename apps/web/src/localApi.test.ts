@@ -92,6 +92,7 @@ const rpcClientMock = {
   },
   sandbox: {
     getConfig: vi.fn(),
+    gitFetch: vi.fn(),
     runHealthcheck: vi.fn(),
     runShutdown: vi.fn(),
   },

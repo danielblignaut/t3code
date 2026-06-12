@@ -127,6 +127,7 @@ export interface WsRpcClient {
   };
   readonly sandbox: {
     readonly getConfig: RpcUnaryNoArgMethod<typeof WS_METHODS.sandboxGetConfig>;
+    readonly gitFetch: RpcUnaryNoArgMethod<typeof WS_METHODS.sandboxGitFetch>;
     readonly runHealthcheck: RpcUnaryNoArgMethod<typeof WS_METHODS.sandboxRunHealthcheck>;
     readonly runShutdown: RpcUnaryNoArgMethod<typeof WS_METHODS.sandboxRunShutdown>;
   };
@@ -293,6 +294,7 @@ export function createWsRpcClient(
     },
     sandbox: {
       getConfig: () => transport.request((client) => client[WS_METHODS.sandboxGetConfig]({})),
+      gitFetch: () => transport.request((client) => client[WS_METHODS.sandboxGitFetch]({})),
       runHealthcheck: () =>
         transport.request((client) => client[WS_METHODS.sandboxRunHealthcheck]({})),
       runShutdown: () => transport.request((client) => client[WS_METHODS.sandboxRunShutdown]({})),

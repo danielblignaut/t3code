@@ -151,6 +151,7 @@ export const WS_METHODS = {
 
   // Sandbox methods
   sandboxGetConfig: "sandbox.getConfig",
+  sandboxGitFetch: "sandbox.gitFetch",
   sandboxRunHealthcheck: "sandbox.runHealthcheck",
   sandboxRunShutdown: "sandbox.runShutdown",
 
@@ -427,6 +428,12 @@ export const WsSandboxGetConfigRpc = Rpc.make(WS_METHODS.sandboxGetConfig, {
   error: Schema.Union([SandboxError, EnvironmentAuthorizationError]),
 });
 
+export const WsSandboxGitFetchRpc = Rpc.make(WS_METHODS.sandboxGitFetch, {
+  payload: Schema.Struct({}),
+  success: SandboxScriptResult,
+  error: Schema.Union([SandboxError, EnvironmentAuthorizationError]),
+});
+
 export const WsSandboxRunHealthcheckRpc = Rpc.make(WS_METHODS.sandboxRunHealthcheck, {
   payload: Schema.Struct({}),
   success: SandboxScriptResult,
@@ -605,6 +612,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsVcsInitRpc,
   WsReviewGetDiffPreviewRpc,
   WsSandboxGetConfigRpc,
+  WsSandboxGitFetchRpc,
   WsSandboxRunHealthcheckRpc,
   WsSandboxRunShutdownRpc,
   WsTerminalOpenRpc,

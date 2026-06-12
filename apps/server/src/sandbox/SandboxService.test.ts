@@ -88,6 +88,8 @@ describe("SandboxService", () => {
         const config = yield* sandbox.getConfig;
         expect(config).toEqual({
           previewUrls: [],
+          providersToConfigure: [],
+          setupCommand: null,
           startupCommand: null,
           shutdownCommand: null,
           healthcheckCommand: null,
@@ -116,6 +118,8 @@ describe("SandboxService", () => {
             { name: "app", url: "http://localhost:3000" },
             { name: "", url: "http://ignored.example" },
           ],
+          providers_to_configure: { claude: true, codex: false },
+          setup_sandbox: "./setup.sh",
           startup_script: " ./start.sh ",
           shutdown_script: "./stop.sh",
           healthcheck_script: "./health.sh",
@@ -124,6 +128,8 @@ describe("SandboxService", () => {
         const sandbox = yield* SandboxService.pipe(Effect.provide(makeTestLayer(cwd)));
         const config = yield* sandbox.getConfig;
         expect(config.previewUrls).toEqual([{ name: "app", url: "http://localhost:3000" }]);
+        expect(config.providersToConfigure).toEqual(["claude"]);
+        expect(config.setupCommand).toBe("./setup.sh");
         expect(config.startupCommand).toBe("./start.sh");
         expect(config.shutdownCommand).toBe("./stop.sh");
         expect(config.healthcheckCommand).toBe("./health.sh");

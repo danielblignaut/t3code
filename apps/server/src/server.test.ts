@@ -763,10 +763,13 @@ const buildAppUnderTest = (options?: {
         Layer.mock(SandboxService)({
           getConfig: Effect.succeed({
             previewUrls: [],
+            providersToConfigure: [],
+            setupCommand: null,
             startupCommand: null,
             shutdownCommand: null,
             healthcheckCommand: null,
           }),
+          gitFetch: Effect.succeed({ status: "no-script", exitCode: null }),
           runHealthcheck: Effect.succeed({ status: "no-script", exitCode: null }),
           runShutdown: Effect.succeed({ status: "no-script", exitCode: null }),
           ...options?.layers?.sandboxService,

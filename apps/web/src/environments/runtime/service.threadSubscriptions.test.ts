@@ -140,6 +140,7 @@ vi.mock("@t3tools/client-runtime", async (importOriginal) => {
     },
     sandbox: {
       getConfig: vi.fn(),
+      gitFetch: vi.fn(),
       runHealthcheck: vi.fn(),
       runShutdown: vi.fn(),
     },
