@@ -90,6 +90,11 @@ const rpcClientMock = {
   review: {
     getDiffPreview: vi.fn(),
   },
+  sandbox: {
+    getConfig: vi.fn(),
+    runHealthcheck: vi.fn(),
+    runShutdown: vi.fn(),
+  },
   server: {
     getConfig: vi.fn(),
     refreshProviders: vi.fn(),

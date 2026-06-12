@@ -125,6 +125,11 @@ export interface WsRpcClient {
   readonly review: {
     readonly getDiffPreview: RpcUnaryMethod<typeof WS_METHODS.reviewGetDiffPreview>;
   };
+  readonly sandbox: {
+    readonly getConfig: RpcUnaryNoArgMethod<typeof WS_METHODS.sandboxGetConfig>;
+    readonly runHealthcheck: RpcUnaryNoArgMethod<typeof WS_METHODS.sandboxRunHealthcheck>;
+    readonly runShutdown: RpcUnaryNoArgMethod<typeof WS_METHODS.sandboxRunShutdown>;
+  };
   readonly server: {
     readonly getConfig: RpcUnaryNoArgMethod<typeof WS_METHODS.serverGetConfig>;
     readonly refreshProviders: (
@@ -285,6 +290,12 @@ export function createWsRpcClient(
     review: {
       getDiffPreview: (input) =>
         transport.request((client) => client[WS_METHODS.reviewGetDiffPreview](input)),
+    },
+    sandbox: {
+      getConfig: () => transport.request((client) => client[WS_METHODS.sandboxGetConfig]({})),
+      runHealthcheck: () =>
+        transport.request((client) => client[WS_METHODS.sandboxRunHealthcheck]({})),
+      runShutdown: () => transport.request((client) => client[WS_METHODS.sandboxRunShutdown]({})),
     },
     server: {
       getConfig: () => transport.request((client) => client[WS_METHODS.serverGetConfig]({})),

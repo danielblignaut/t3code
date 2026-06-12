@@ -43,6 +43,7 @@ import {
   ReviewDiffPreviewInput,
   ReviewDiffPreviewResult,
 } from "./review.ts";
+import { SandboxConfig, SandboxError, SandboxScriptResult } from "./sandbox.ts";
 import { KeybindingsConfigError } from "./keybindings.ts";
 import {
   ClientOrchestrationCommand,
@@ -147,6 +148,11 @@ export const WS_METHODS = {
 
   // Review methods
   reviewGetDiffPreview: "review.getDiffPreview",
+
+  // Sandbox methods
+  sandboxGetConfig: "sandbox.getConfig",
+  sandboxRunHealthcheck: "sandbox.runHealthcheck",
+  sandboxRunShutdown: "sandbox.runShutdown",
 
   // Terminal methods
   terminalOpen: "terminal.open",
@@ -415,6 +421,24 @@ export const WsReviewGetDiffPreviewRpc = Rpc.make(WS_METHODS.reviewGetDiffPrevie
   error: Schema.Union([ReviewDiffPreviewError, EnvironmentAuthorizationError]),
 });
 
+export const WsSandboxGetConfigRpc = Rpc.make(WS_METHODS.sandboxGetConfig, {
+  payload: Schema.Struct({}),
+  success: SandboxConfig,
+  error: Schema.Union([SandboxError, EnvironmentAuthorizationError]),
+});
+
+export const WsSandboxRunHealthcheckRpc = Rpc.make(WS_METHODS.sandboxRunHealthcheck, {
+  payload: Schema.Struct({}),
+  success: SandboxScriptResult,
+  error: Schema.Union([SandboxError, EnvironmentAuthorizationError]),
+});
+
+export const WsSandboxRunShutdownRpc = Rpc.make(WS_METHODS.sandboxRunShutdown, {
+  payload: Schema.Struct({}),
+  success: SandboxScriptResult,
+  error: Schema.Union([SandboxError, EnvironmentAuthorizationError]),
+});
+
 export const WsTerminalOpenRpc = Rpc.make(WS_METHODS.terminalOpen, {
   payload: TerminalOpenInput,
   success: TerminalSessionSnapshot,
@@ -580,6 +604,9 @@ export const WsRpcGroup = RpcGroup.make(
   WsVcsSwitchRefRpc,
   WsVcsInitRpc,
   WsReviewGetDiffPreviewRpc,
+  WsSandboxGetConfigRpc,
+  WsSandboxRunHealthcheckRpc,
+  WsSandboxRunShutdownRpc,
   WsTerminalOpenRpc,
   WsTerminalAttachRpc,
   WsTerminalWriteRpc,

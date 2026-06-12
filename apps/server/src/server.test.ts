@@ -125,6 +125,7 @@ import * as VcsDriverRegistry from "./vcs/VcsDriverRegistry.ts";
 import * as VcsProvisioningService from "./vcs/VcsProvisioningService.ts";
 import * as GitWorkflowService from "./git/GitWorkflowService.ts";
 import * as ReviewService from "./review/ReviewService.ts";
+import { SandboxService, type SandboxServiceShape } from "./sandbox/SandboxService.ts";
 import * as SourceControlRepositoryService from "./sourceControl/SourceControlRepositoryService.ts";
 import * as ServerSecretStore from "./auth/ServerSecretStore.ts";
 import * as EnvironmentAuth from "./auth/EnvironmentAuth.ts";
@@ -360,6 +361,7 @@ const buildAppUnderTest = (options?: {
     serverRuntimeStartup?: Partial<ServerRuntimeStartupShape>;
     serverEnvironment?: Partial<ServerEnvironmentShape>;
     repositoryIdentityResolver?: Partial<RepositoryIdentityResolverShape>;
+    sandboxService?: Partial<SandboxServiceShape>;
     cloudManagedEndpointRuntime?: Partial<CloudManagedEndpointRuntimeShape>;
     relayClient?: Partial<RelayClient.RelayClientShape>;
     cloudCliTokenManager?: Partial<CloudCliTokenManager.CloudCliTokenManagerShape>;
@@ -755,6 +757,19 @@ const buildAppUnderTest = (options?: {
         Layer.mock(RepositoryIdentityResolver)({
           resolve: () => Effect.succeed(null),
           ...options?.layers?.repositoryIdentityResolver,
+        }),
+      ),
+      Layer.provide(
+        Layer.mock(SandboxService)({
+          getConfig: Effect.succeed({
+            previewUrls: [],
+            startupCommand: null,
+            shutdownCommand: null,
+            healthcheckCommand: null,
+          }),
+          runHealthcheck: Effect.succeed({ status: "no-script", exitCode: null }),
+          runShutdown: Effect.succeed({ status: "no-script", exitCode: null }),
+          ...options?.layers?.sandboxService,
         }),
       ),
       Layer.provide(

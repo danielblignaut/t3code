@@ -19,6 +19,7 @@ import type {
   VcsStatusResult,
 } from "./git.ts";
 import type { ReviewDiffPreviewInput, ReviewDiffPreviewResult } from "./review.ts";
+import type { SandboxConfig, SandboxScriptResult } from "./sandbox.ts";
 import type { FilesystemBrowseInput, FilesystemBrowseResult } from "./filesystem.ts";
 import type {
   ProjectSearchEntriesInput,
@@ -597,6 +598,11 @@ export interface EnvironmentApi {
   };
   review: {
     getDiffPreview: (input: ReviewDiffPreviewInput) => Promise<ReviewDiffPreviewResult>;
+  };
+  sandbox: {
+    getConfig: () => Promise<SandboxConfig>;
+    runHealthcheck: () => Promise<SandboxScriptResult>;
+    runShutdown: () => Promise<SandboxScriptResult>;
   };
   orchestration: {
     dispatchCommand: (command: ClientOrchestrationCommand) => Promise<{ sequence: number }>;

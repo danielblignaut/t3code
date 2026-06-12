@@ -253,6 +253,16 @@ function createMockEnvironmentApi(input: {
     vcs: {} as EnvironmentApi["vcs"],
     git: {} as EnvironmentApi["git"],
     review: {} as EnvironmentApi["review"],
+    sandbox: {
+      getConfig: async () => ({
+        previewUrls: [],
+        startupCommand: null,
+        shutdownCommand: null,
+        healthcheckCommand: null,
+      }),
+      runHealthcheck: async () => ({ status: "no-script", exitCode: null }),
+      runShutdown: async () => ({ status: "no-script", exitCode: null }),
+    },
     orchestration: {
       dispatchCommand: input.dispatchCommand,
       getTurnDiff: (() => {

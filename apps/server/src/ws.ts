@@ -77,6 +77,7 @@ import { VcsStatusBroadcaster } from "./vcs/VcsStatusBroadcaster.ts";
 import { VcsProvisioningService } from "./vcs/VcsProvisioningService.ts";
 import { GitWorkflowService } from "./git/GitWorkflowService.ts";
 import { ReviewService } from "./review/ReviewService.ts";
+import { SandboxService } from "./sandbox/SandboxService.ts";
 import { ProjectSetupScriptRunner } from "./project/Services/ProjectSetupScriptRunner.ts";
 import { RepositoryIdentityResolver } from "./project/Services/RepositoryIdentityResolver.ts";
 import { ServerEnvironment } from "./environment/Services/ServerEnvironment.ts";
@@ -171,6 +172,9 @@ const RPC_REQUIRED_SCOPE = new Map<string, AuthEnvironmentScope>([
   [WS_METHODS.vcsSwitchRef, AuthOrchestrationOperateScope],
   [WS_METHODS.vcsInit, AuthOrchestrationOperateScope],
   [WS_METHODS.reviewGetDiffPreview, AuthReviewWriteScope],
+  [WS_METHODS.sandboxGetConfig, AuthOrchestrationReadScope],
+  [WS_METHODS.sandboxRunHealthcheck, AuthOrchestrationOperateScope],
+  [WS_METHODS.sandboxRunShutdown, AuthOrchestrationOperateScope],
   [WS_METHODS.terminalOpen, AuthTerminalOperateScope],
   [WS_METHODS.terminalAttach, AuthTerminalOperateScope],
   [WS_METHODS.terminalWrite, AuthTerminalOperateScope],
@@ -237,6 +241,7 @@ const makeWsRpcLayer = (currentSession: AuthenticatedSession) =>
       const externalLauncher = yield* ExternalLauncher.ExternalLauncher;
       const gitWorkflow = yield* GitWorkflowService;
       const review = yield* ReviewService;
+      const sandboxService = yield* SandboxService;
       const vcsProvisioning = yield* VcsProvisioningService;
       const vcsStatusBroadcaster = yield* VcsStatusBroadcaster;
       const terminalManager = yield* TerminalManager;
@@ -1292,6 +1297,18 @@ const makeWsRpcLayer = (currentSession: AuthenticatedSession) =>
         [WS_METHODS.reviewGetDiffPreview]: (input) =>
           observeRpcEffect(WS_METHODS.reviewGetDiffPreview, review.getDiffPreview(input), {
             "rpc.aggregate": "review",
+          }),
+        [WS_METHODS.sandboxGetConfig]: () =>
+          observeRpcEffect(WS_METHODS.sandboxGetConfig, sandboxService.getConfig, {
+            "rpc.aggregate": "sandbox",
+          }),
+        [WS_METHODS.sandboxRunHealthcheck]: () =>
+          observeRpcEffect(WS_METHODS.sandboxRunHealthcheck, sandboxService.runHealthcheck, {
+            "rpc.aggregate": "sandbox",
+          }),
+        [WS_METHODS.sandboxRunShutdown]: () =>
+          observeRpcEffect(WS_METHODS.sandboxRunShutdown, sandboxService.runShutdown, {
+            "rpc.aggregate": "sandbox",
           }),
         [WS_METHODS.terminalOpen]: (input) =>
           observeRpcEffect(WS_METHODS.terminalOpen, terminalManager.open(input), {
