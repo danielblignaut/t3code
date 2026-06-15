@@ -1,9 +1,8 @@
-import type { EnvironmentId, SandboxConfig, ServerProvider } from "@t3tools/contracts";
+import type { EnvironmentId, SandboxConfig } from "@t3tools/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { stackedThreadToast, toastManager } from "~/components/ui/toast";
 import { readEnvironmentApi } from "~/environmentApi";
-import { readLocalApi } from "~/localApi";
 
 const HEALTHCHECK_INTERVAL_MS = 30_000;
 const HEALTHCHECK_RETRY_DELAY_MS = 5_000;
@@ -11,17 +10,16 @@ const HEALTHCHECK_RETRY_ATTEMPTS = 5;
 /** Grace period after launching the startup script before failures count. */
 const HEALTHCHECK_STARTUP_GRACE_MS = 60_000;
 
-const PROVIDER_SIGN_IN_POLL_MS = 5_000;
-const PROVIDER_SIGN_IN_TIMEOUT_MS = 15 * 60_000;
-
 /**
  * Provider keys accepted in `providers_to_configure`, mapped to the t3
- * driver/instance they control. Only Claude is supported for now.
+ * interactive login command they require before the sandbox starts.
  */
-const CONFIGURABLE_PROVIDERS: Record<string, { instanceId: string; signInCommand: string }> = {
+const CONFIGURABLE_PROVIDERS: Record<string, { reauthCommand: string }> = {
   claude: {
-    instanceId: "claudeAgent",
-    signInCommand: "claude setup-token",
+    reauthCommand: "(claude auth logout || claude logout || true) && claude auth login",
+  },
+  codex: {
+    reauthCommand: "(codex logout || true) && codex login",
   },
 };
 
@@ -248,99 +246,18 @@ export function useSandboxRuntime(input: {
       showHealthcheckFailedToast();
     };
 
-    const readConfiguredProviderSnapshot = (
-      providers: ReadonlyArray<ServerProvider>,
-      instanceId: string,
-    ) => providers.find((provider) => provider.instanceId === instanceId) ?? null;
+    const buildProviderReauthCommand = (sandboxConfig: SandboxConfig): string | null =>
+      joinCommands(
+        sandboxConfig.providersToConfigure.map(
+          (providerKey) => CONFIGURABLE_PROVIDERS[providerKey]?.reauthCommand ?? null,
+        ),
+      );
 
     /**
-     * Signs in and enables every provider listed in
-     * `providers_to_configure`. Sign-in runs in the visible terminal
-     * (headless device-code flow) while the provider status is polled until
-     * it reports authenticated.
-     */
-    const ensureProvidersConfigured = async (sandboxConfig: SandboxConfig) => {
-      const localApi = readLocalApi();
-      if (!localApi) {
-        return;
-      }
-
-      for (const providerKey of sandboxConfig.providersToConfigure) {
-        const configurable = CONFIGURABLE_PROVIDERS[providerKey];
-        if (!configurable) {
-          continue;
-        }
-
-        let snapshot: ServerProvider | null = null;
-        try {
-          snapshot = readConfiguredProviderSnapshot(
-            (await localApi.server.refreshProviders()).providers,
-            configurable.instanceId,
-          );
-        } catch {
-          continue;
-        }
-        if (cancelled) {
-          return;
-        }
-        if (snapshot === null) {
-          continue;
-        }
-
-        if (snapshot.auth.status !== "authenticated") {
-          runScriptInTerminal({
-            name: `${providerKey} sign-in`,
-            command: configurable.signInCommand,
-          });
-
-          const pollAttempts = Math.ceil(PROVIDER_SIGN_IN_TIMEOUT_MS / PROVIDER_SIGN_IN_POLL_MS);
-          for (let attempt = 0; attempt < pollAttempts; attempt++) {
-            await wait(PROVIDER_SIGN_IN_POLL_MS);
-            if (cancelled) {
-              return;
-            }
-            try {
-              snapshot = readConfiguredProviderSnapshot(
-                (await localApi.server.refreshProviders()).providers,
-                configurable.instanceId,
-              );
-            } catch {
-              continue;
-            }
-            if (snapshot?.auth.status === "authenticated") {
-              break;
-            }
-          }
-        }
-        if (cancelled) {
-          return;
-        }
-
-        if (snapshot?.auth.status === "authenticated" && !snapshot.enabled) {
-          try {
-            if (providerKey === "claude") {
-              await localApi.server.updateSettings({
-                providers: { claudeAgent: { enabled: true } },
-              });
-            }
-            await localApi.server.refreshProviders();
-          } catch {
-            // Provider stays disabled; the user can enable it in settings.
-          }
-        }
-      }
-    };
-
-    /**
-     * Runs after the branch gate is confirmed: provider sign-in, then the
-     * setup/startup chain in the terminal, then the healthcheck loop.
+     * Runs after the branch gate is confirmed: setup, provider re-auth, then
+     * startup in the terminal, followed by the healthcheck loop.
      */
     const runOpenSequence = async (sandboxConfig: SandboxConfig, branchChanged: boolean) => {
-      await ensureProvidersConfigured(sandboxConfig);
-      if (cancelled) {
-        return;
-      }
-
       // On an unchanged branch, a passing healthcheck means the system is
       // already up — skip setup/startup instead of double-starting it.
       const healthy = branchChanged ? false : await runHealthcheck();
@@ -354,6 +271,7 @@ export function useSandboxRuntime(input: {
           : joinCommands([
               branchChanged ? sandboxConfig.shutdownCommand : null,
               sandboxConfig.setupCommand,
+              buildProviderReauthCommand(sandboxConfig),
               sandboxConfig.startupCommand,
             ]);
       if (openCommand !== null) {

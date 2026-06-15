@@ -684,24 +684,51 @@ export const make = Effect.fn("makeEnvironmentAuth")(function* () {
 
   const authenticateWebSocketUpgrade: EnvironmentAuthShape["authenticateWebSocketUpgrade"] =
     Effect.fn("EnvironmentAuth.authenticateWebSocketUpgrade")(function* (request) {
+      const rejectWhenAnotherSessionIsConnected = (session: AuthenticatedSession) =>
+        sessions.listActive().pipe(
+          Effect.flatMap((activeSessions) =>
+            activeSessions.some(
+              (activeSession) =>
+                activeSession.connected && activeSession.sessionId !== session.sessionId,
+            )
+              ? Effect.fail(
+                  new ServerAuthInvalidCredentialError({
+                    reason: "invalid_credential",
+                  }),
+                )
+              : Effect.succeed(session),
+          ),
+          Effect.mapError((cause) =>
+            cause._tag === "SessionCredentialInternalError"
+              ? new ServerAuthInternalError({
+                  message: "Failed to verify active browser sessions.",
+                  cause,
+                })
+              : cause,
+          ),
+        );
       const requestUrl = HttpServerRequest.toURL(request);
       if (Option.isSome(requestUrl)) {
         const websocketTicket = requestUrl.value.searchParams.get(WEBSOCKET_TICKET_QUERY_PARAM);
         if (websocketTicket && websocketTicket.trim().length > 0) {
-          return yield* sessions.verifyWebSocketToken(websocketTicket).pipe(
-            Effect.map((session) => ({
-              sessionId: session.sessionId,
-              subject: session.subject,
-              method: session.method,
-              scopes: session.scopes,
-              ...(session.expiresAt ? { expiresAt: session.expiresAt } : {}),
-            })),
+          const session = yield* sessions.verifyWebSocketToken(websocketTicket).pipe(
+            Effect.map(
+              (session): AuthenticatedSession => ({
+                sessionId: session.sessionId,
+                subject: session.subject,
+                method: session.method,
+                scopes: session.scopes,
+                ...(session.expiresAt ? { expiresAt: session.expiresAt } : {}),
+              }),
+            ),
             mapSessionVerificationErrors,
           );
+          return yield* rejectWhenAnotherSessionIsConnected(session);
         }
       }
 
-      return yield* authenticateRequest(request);
+      const session = yield* authenticateRequest(request);
+      return yield* rejectWhenAnotherSessionIsConnected(session);
     });
 
   return {
