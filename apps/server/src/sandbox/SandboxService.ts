@@ -18,6 +18,7 @@ import { ProcessRunner, layer as ProcessRunnerLive } from "../processRunner.ts";
 export const SANDBOX_CONFIG_FILENAME = "t3codable.json";
 
 const TAILSCALE_IP_VARIABLE = "$tailscale_ip";
+const T3CODE_BASE_URL_VARIABLE = "$t3code_base_url";
 
 const HEALTHCHECK_TIMEOUT = "25 seconds";
 const SHUTDOWN_TIMEOUT = "60 seconds";
@@ -109,6 +110,21 @@ export function interpolateTailscaleIp(url: string, tailscaleIp: string | null):
   return url.replaceAll(TAILSCALE_IP_VARIABLE, tailscaleIp);
 }
 
+function normalizeT3CodeBaseUrl(value: string | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  if (trimmed.length === 0) {
+    return null;
+  }
+  return trimmed.replace(/\/+$/, "");
+}
+
+export function interpolateT3CodeBaseUrl(url: string, t3codeBaseUrl: string | null): string {
+  if (t3codeBaseUrl === null) {
+    return url;
+  }
+  return url.replaceAll(T3CODE_BASE_URL_VARIABLE, t3codeBaseUrl);
+}
+
 export interface SandboxServiceShape {
   readonly getConfig: Effect.Effect<SandboxConfig, SandboxError>;
   readonly gitFetch: Effect.Effect<SandboxScriptResult, SandboxError>;
@@ -127,6 +143,7 @@ export const make = Effect.fn("makeSandboxService")(function* () {
   const serverConfig = yield* ServerConfig;
   const childProcessSpawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const cachedTailscaleIp = yield* Ref.make<Option.Option<string>>(Option.none());
+  const t3codeBaseUrl = normalizeT3CodeBaseUrl(process.env.T3CODE_BASE_URL);
 
   const configPath = path.join(serverConfig.cwd, SANDBOX_CONFIG_FILENAME);
 
@@ -152,10 +169,14 @@ export const make = Effect.fn("makeSandboxService")(function* () {
   });
 
   const interpolateUrl = Effect.fn("SandboxService.interpolateUrl")(function* (url: string) {
-    if (!url.includes(TAILSCALE_IP_VARIABLE)) {
-      return url;
+    let interpolated = url;
+    if (interpolated.includes(TAILSCALE_IP_VARIABLE)) {
+      interpolated = interpolateTailscaleIp(interpolated, yield* resolveTailscaleIp);
     }
-    return interpolateTailscaleIp(url, yield* resolveTailscaleIp);
+    if (interpolated.includes(T3CODE_BASE_URL_VARIABLE)) {
+      interpolated = interpolateT3CodeBaseUrl(interpolated, t3codeBaseUrl);
+    }
+    return interpolated;
   });
 
   const getConfig: SandboxServiceShape["getConfig"] = Effect.gen(function* () {

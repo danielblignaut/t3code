@@ -9,6 +9,7 @@ import { ServerConfig } from "../config.ts";
 import {
   SANDBOX_CONFIG_FILENAME,
   SandboxService,
+  interpolateT3CodeBaseUrl,
   interpolateTailscaleIp,
   layer as SandboxServiceLive,
   readSandboxPairCode,
@@ -55,6 +56,23 @@ describe("interpolateTailscaleIp", () => {
     expect(interpolateTailscaleIp("http://$tailscale_ip:3000", null)).toBe(
       "http://$tailscale_ip:3000",
     );
+  });
+});
+
+describe("interpolateT3CodeBaseUrl", () => {
+  it("replaces every occurrence of $t3code_base_url", () => {
+    expect(
+      interpolateT3CodeBaseUrl(
+        "$t3code_base_url:8000/docs?next=$t3code_base_url",
+        "https://thomas-lane-1.faro-devbox.com",
+      ),
+    ).toBe(
+      "https://thomas-lane-1.faro-devbox.com:8000/docs?next=https://thomas-lane-1.faro-devbox.com",
+    );
+  });
+
+  it("leaves the url unchanged when no base url is available", () => {
+    expect(interpolateT3CodeBaseUrl("$t3code_base_url:8000", null)).toBe("$t3code_base_url:8000");
   });
 });
 
@@ -133,6 +151,32 @@ describe("SandboxService", () => {
         expect(config.startupCommand).toBe("./start.sh");
         expect(config.shutdownCommand).toBe("./stop.sh");
         expect(config.healthcheckCommand).toBe("./health.sh");
+      }),
+    ),
+  );
+
+  it.effect("interpolates $t3code_base_url from T3CODE_BASE_URL", () =>
+    withProjectDir((cwd) =>
+      Effect.gen(function* () {
+        const previousBaseUrl = process.env.T3CODE_BASE_URL;
+        process.env.T3CODE_BASE_URL = " https://thomas-lane-1.faro-devbox.com/ ";
+        try {
+          yield* writeSandboxConfig(cwd, {
+            preview_urls: [{ name: "api", url: "$t3code_base_url:8000/docs" }],
+          });
+
+          const sandbox = yield* SandboxService.pipe(Effect.provide(makeTestLayer(cwd)));
+          const config = yield* sandbox.getConfig;
+          expect(config.previewUrls).toEqual([
+            { name: "api", url: "https://thomas-lane-1.faro-devbox.com:8000/docs" },
+          ]);
+        } finally {
+          if (previousBaseUrl === undefined) {
+            delete process.env.T3CODE_BASE_URL;
+          } else {
+            process.env.T3CODE_BASE_URL = previousBaseUrl;
+          }
+        }
       }),
     ),
   );
