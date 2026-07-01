@@ -1,6 +1,7 @@
 import {
   type ApprovalRequestId,
   DEFAULT_MODEL,
+  DEFAULT_MODEL_BY_PROVIDER,
   defaultInstanceIdForDriver,
   type EnvironmentId,
   type MessageId,
@@ -189,6 +190,10 @@ const EMPTY_ACTIVITIES: OrchestrationThreadActivity[] = [];
 const EMPTY_PROPOSED_PLANS: Thread["proposedPlans"] = [];
 const EMPTY_PROVIDERS: ServerProvider[] = [];
 const EMPTY_PROVIDER_SKILLS: ServerProvider["skills"] = [];
+const SANDBOX_PROVIDER_KEY_TO_DRIVER: Readonly<Record<string, ProviderDriverKind>> = Object.freeze({
+  claude: ProviderDriverKind.make("claudeAgent"),
+  codex: ProviderDriverKind.make("codex"),
+});
 const EMPTY_PENDING_USER_INPUT_ANSWERS: Record<string, PendingUserInputDraftAnswer> = {};
 const TYPE_TO_FOCUS_EDITABLE_SELECTOR = [
   "input",
@@ -819,6 +824,7 @@ export default function ChatView(props: ChatViewProps) {
   const routeThreadKey = useMemo(() => scopedThreadKey(routeThreadRef), [routeThreadRef]);
   const composerDraftTarget: ScopedThreadRef | DraftId =
     routeKind === "server" ? routeThreadRef : props.draftId;
+  const composerDraftSeedKey = routeKind === "server" ? routeThreadKey : `draft:${props.draftId}`;
   const serverThread = useStore(
     useMemo(
       () => createThreadSelectorByRef(routeKind === "server" ? routeThreadRef : null),
@@ -871,6 +877,7 @@ export default function ChatView(props: ChatViewProps) {
   const setLogicalProjectDraftThreadId = useComposerDraftStore(
     (store) => store.setLogicalProjectDraftThreadId,
   );
+  const sandboxProviderSeededKeysRef = useRef<Set<string>>(new Set());
   const draftThread = useComposerDraftStore((store) =>
     routeKind === "server"
       ? store.getDraftSessionByRef(routeThreadRef)
@@ -2180,6 +2187,47 @@ export default function ChatView(props: ChatViewProps) {
     onRunScriptInTerminal: runSandboxScriptInTerminal,
   });
   const sandboxPreviewUrls = sandboxRuntime.config?.previewUrls ?? EMPTY_SANDBOX_PREVIEW_URLS;
+  const sandboxConfiguredProvider = useMemo<ProviderDriverKind | null>(() => {
+    for (const providerKey of sandboxRuntime.config?.providersToConfigure ?? []) {
+      const provider = SANDBOX_PROVIDER_KEY_TO_DRIVER[providerKey];
+      if (provider) {
+        return provider;
+      }
+    }
+    return null;
+  }, [sandboxRuntime.config?.providersToConfigure]);
+
+  useEffect(() => {
+    if (!sandboxConfiguredProvider || !environmentId || composerActiveProvider) {
+      return;
+    }
+    if (!activeThread || activeThread.messages.length > 0) {
+      return;
+    }
+
+    const seedKey = `${environmentId}:${composerDraftSeedKey}`;
+    if (sandboxProviderSeededKeysRef.current.has(seedKey)) {
+      return;
+    }
+    sandboxProviderSeededKeysRef.current.add(seedKey);
+
+    const instanceId = defaultInstanceIdForDriver(sandboxConfiguredProvider);
+    setComposerDraftModelSelection(
+      composerDraftTarget,
+      createModelSelection(
+        instanceId,
+        DEFAULT_MODEL_BY_PROVIDER[sandboxConfiguredProvider] ?? DEFAULT_MODEL,
+      ),
+    );
+  }, [
+    activeThread,
+    composerActiveProvider,
+    composerDraftSeedKey,
+    composerDraftTarget,
+    environmentId,
+    sandboxConfiguredProvider,
+    setComposerDraftModelSelection,
+  ]);
 
   const handleRuntimeModeChange = useCallback(
     (mode: RuntimeMode) => {
